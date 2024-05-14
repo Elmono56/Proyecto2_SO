@@ -465,7 +465,7 @@ void add_files_to_archive(const char *packed_file, char **filenames, int num_fil
             }
 
             write_disk_block(archive, &block, block_position);
-            update_fat(&fat, filename, file_size, block_position, bytes_read);
+            update_file_allocation_table(&fat, filename, file_size, block_position, bytes_read);
 
             file_size += bytes_read;
             block_count++;
@@ -500,7 +500,7 @@ void add_files_to_archive(const char *packed_file, char **filenames, int num_fil
                 }
 
                 write_disk_block(archive, &block, block_position);
-                update_fat(&fat, filename, file_size, block_position, bytes_read);
+                update_file_allocation_table(&fat, filename, file_size, block_position, bytes_read);
 
                 file_size += bytes_read;
                 block_count++;
