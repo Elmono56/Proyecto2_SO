@@ -45,6 +45,105 @@ struct CommandFlags {
     int numInputFiles;
 };
 
+void generate_archive(struct CommandFlags options);
+void extract_files_from_archive(const char *packed_file, bool verbose, bool very_verbose);
+void remove_files_from_archive(const char *packed_file, char **filenames, int num_files, bool verbose, bool very_verbose);
+void modify_files_in_archive(const char *packed_file, char **filenames, int num_files, bool verbose, bool very_verbose);
+void add_files_to_archive(const char *packed_file, char **filenames, int num_files, bool verbose, bool very_verbose);
+void compact_archive(const char *packed_file, bool verbose, bool very_verbose);
+void show_archive_contents(const char *packed_file, bool verbose);
+
+
+int main(int argc, char *argv[]) {
+    struct CommandFlags flags = {false, false, false, false, false, false, false, false, false, false, NULL, NULL, 0};
+    int opt;
+
+    static struct option long_options[] = {
+        {"create",      no_argument,       0, 'c'},
+        {"extract",     no_argument,       0, 'x'},
+        {"list",        no_argument,       0, 'l'},
+        {"delete",      no_argument,       0, 'd'},
+        {"update",      no_argument,       0, 'u'},
+        {"verbose",     no_argument,       0, 'v'},
+        {"file",        no_argument,       0, 'f'},
+        {"append",      no_argument,       0, 'a'},
+        {"pack",        no_argument,       0, 'p'},
+        {0, 0, 0, 0}
+    };
+
+    while ((opt = getopt_long(argc, argv, "cxlduvfap", long_options, NULL)) != -1) {
+        switch (opt) {
+            case 'c':
+                flags.create_mode = true;
+                break;
+            case 'x':
+                flags.extract_mode = true;
+                break;
+            case 'l':
+                flags.list_mode = true;
+                break;
+            case 'd':
+                flags.delete_mode = true;
+                break;
+            case 'u':
+                flags.update_mode = true;
+                break;
+            case 'v':
+                if (flags.verbose_mode) {
+                    flags.extra_verbose_mode = true;
+                }
+                flags.verbose_mode = true;
+                break;
+            case 'f':
+                flags.is_file = true;
+                break;
+            case 'a':
+                flags.append_mode = true;
+                break;
+            case 'p':
+                flags.pack_mode = true;
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [-cxlduvfap] <outputFile> <inputFile1> ... <inputFileN>\n", argv[0]);
+                return 1;
+        }
+    }
+
+    if (optind < argc) {
+        flags.outputFile = argv[optind++];
+    }
+
+    flags.numInputFiles = argc - optind;
+    if (flags.numInputFiles > 0) {
+        flags.inputFiles = &argv[optind];
+    }
+
+    if (flags.create_mode){ 
+        generate_archive(flags);
+    }
+    else if (flags.extract_mode) {
+        extract_files_from_archive(flags.outputFile, flags.verbose_mode, flags.extra_verbose_mode);
+    }
+    else if (flags.delete_mode) {
+        remove_files_from_archive(flags.outputFile, flags.inputFiles, flags.numInputFiles, flags.verbose_mode, flags.extra_verbose_mode);
+    }
+    else if (flags.update_mode) {
+        modify_files_in_archive(flags.outputFile, flags.inputFiles, flags.numInputFiles, flags.verbose_mode, flags.extra_verbose_mode);
+    }
+    else if (flags.append_mode) {
+        add_files_to_archive(flags.outputFile, flags.inputFiles, flags.numInputFiles, flags.verbose_mode, flags.extra_verbose_mode);
+    }
+    if (flags.pack_mode) {
+        compact_archive(flags.outputFile, flags.verbose_mode, flags.extra_verbose_mode);
+    }
+    if (flags.list_mode) {
+        show_archive_contents(flags.outputFile, flags.verbose_mode);
+    }
+    return 0;
+}
+
+
+
 size_t find_free_block(FileAllocationTable *fat) {
     for (size_t i = 0; i < fat->num_free_blocks; i++) {
         if (fat->free_blocks[i] != 0) {
@@ -523,80 +622,3 @@ void add_files_to_archive(const char *packed_file, char **filenames, int num_fil
 
     fclose(archive);
 }
-
-int main(int argc, char *argv[]) {
-    struct CommandFlags flags = {false, false, false, false, false, false, false, false, false, false, NULL, NULL, 0};
-    int opt;
-
-    static struct option long_options[] = {
-        {"create",      no_argument,       0, 'c'},
-        {"extract",     no_argument,       0, 'x'},
-        {"list",        no_argument,       0, 'l'},
-        {"delete",      no_argument,       0, 'd'},
-        {"update",      no_argument,       0, 'u'},
-        {"verbose",     no_argument,       0, 'v'},
-        {"file",        no_argument,       0, 'f'},
-        {"append",      no_argument,       0, 'a'},
-        {"pack",        no_argument,       0, 'p'},
-        {0, 0, 0, 0}
-    };
-
-    while ((opt = getopt_long(argc, argv, "cxlduvfap", long_options, NULL)) != -1) {
-        switch (opt) {
-            case 'c':
-                flags.create_mode = true;
-                break;
-            case 'x':
-                flags.extract_mode = true;
-                break;
-            case 'l':
-                flags.list_mode = true;
-                break;
-            case 'd':
-                flags.delete_mode = true;
-                break;
-            case 'u':
-                flags.update_mode = true;
-                break;
-            case 'v':
-                if (flags.verbose_mode) {
-                    flags.extra_verbose_mode = true;
-                }
-                flags.verbose_mode = true;
-                break;
-            case 'f':
-                flags.is_file = true;
-                break;
-            case 'a':
-                flags.append_mode = true;
-                break;
-            case 'p':
-                flags.pack_mode = true;
-                break;
-            default:
-                fprintf(stderr, "Usage: %s [-cxlduvfap] <outputFile> <inputFile1> ... <inputFileN>\n", argv[0]);
-                return 1;
-        }
-    }
-
-    if (optind < argc) {
-        flags.outputFile = argv[optind++];
-    }
-
-    flags.numInputFiles = argc - optind;
-    if (flags.numInputFiles > 0) {
-        flags.inputFiles = &argv[optind];
-    }
-
-    if (flags.create_mode) generate_archive(flags); 
-    else if (flags.extract_mode) extract_files_from_archive(flags.outputFile, flags.verbose_mode, flags.extra_verbose_mode);
-    else if (flags.delete_mode) remove_files_from_archive(flags.outputFile, flags.inputFiles, flags.numInputFiles, flags.verbose_mode, flags.extra_verbose_mode);
-    else if (flags.update_mode) modify_files_in_archive(flags.outputFile, flags.inputFiles, flags.numInputFiles, flags.verbose_mode, flags.extra_verbose_mode);
-    else if (flags.append_mode) add_files_to_archive(flags.outputFile, flags.inputFiles, flags.numInputFiles, flags.verbose_mode, flags.extra_verbose_mode);
-
-    if (flags.pack_mode) compact_archive(flags.outputFile, flags.verbose_mode, flags.extra_verbose_mode);
-    if (flags.list_mode) show_archive_contents(flags.outputFile, flags.verbose_mode);
-
-    return 0;
-}
-
